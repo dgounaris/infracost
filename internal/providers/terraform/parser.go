@@ -385,10 +385,6 @@ func parseRegion(providerConf gjson.Result, vars gjson.Result, providerKey strin
 		}
 	}
 
-	if strings.Contains(region, "mock") {
-		return ""
-	}
-
 	return region
 }
 
@@ -616,9 +612,11 @@ func addressResourcePart(addr string) string {
 
 	if len(p) >= 3 && p[len(p)-3] == "data" {
 		return strings.Join(p[len(p)-3:], ".")
+	} else if len(p) >= 2 {
+		return strings.Join(p[len(p)-2:], ".")
 	}
 
-	return strings.Join(p[len(p)-2:], ".")
+	return ""
 }
 
 // addressModulePart parses a resource addr and returns module prefix.
@@ -630,7 +628,7 @@ func addressModulePart(addr string) string {
 
 	if len(ap) >= 3 && ap[len(ap)-3] == "data" {
 		mp = ap[:len(ap)-3]
-	} else {
+	} else if len(ap) >= 2 {
 		mp = ap[:len(ap)-2]
 	}
 
@@ -684,6 +682,10 @@ func addressKey(addr string) string {
 func removeAddressArrayPart(addr string) string {
 	r := regexp.MustCompile(`([^\[]+)`)
 	m := r.FindStringSubmatch(addressResourcePart(addr))
+
+	if len(m) == 0 {
+		return ""
+	}
 
 	return m[1]
 }
