@@ -4,6 +4,7 @@ import (
 	"archive/zip"
 	"encoding/json"
 	"fmt"
+	"github.com/infracost/infracost/internal/providers/arm"
 	"os"
 	"path/filepath"
 	"sync"
@@ -89,6 +90,8 @@ func Detect(ctx *config.ProjectContext, includePastResources bool) (schema.Provi
 		return terraform.NewStateJSONProvider(ctx, includePastResources), nil
 	case "cloudformation":
 		return cloudformation.NewTemplateProvider(ctx, includePastResources), nil
+	case "arm":
+		return arm.NewTemplateProvider(ctx, includePastResources), nil
 	}
 
 	return nil, fmt.Errorf("could not detect path type for '%s'", path)
@@ -119,6 +122,10 @@ func validateProjectForHCL(ctx *config.ProjectContext, path string) error {
 func DetectProjectType(path string, forceCLI bool) string {
 	if isCloudFormationTemplate(path) {
 		return "cloudformation"
+	}
+
+	if isArmTemplate(path) {
+		return "arm"
 	}
 
 	if isTerraformPlanJSON(path) {
@@ -263,4 +270,26 @@ func isCloudFormationTemplate(path string) bool {
 	}
 
 	return false
+}
+
+func isArmTemplate(path string) bool {
+	b, err := os.ReadFile(path)
+	if err != nil {
+		return false
+	}
+
+	var jsonFormat struct {
+		FormatVersion string        `json:"contentVersion"`
+		Values        []interface{} `json:"resources"`
+	}
+
+	if b[0] == 239 && b[1] == 187 && b[2] == 191 {
+		b = b[3:] // remove BOB if exists
+	}
+	err = json.Unmarshal(b, &jsonFormat)
+	if err != nil {
+		return false
+	}
+
+	return jsonFormat.FormatVersion != "" && jsonFormat.Values != nil
 }
